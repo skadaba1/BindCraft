@@ -52,7 +52,7 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
         return wt_aa
     ### END SK CUSTOM
         
-    setattr(af_model, '_wt_aatype', generate_wt_aatype(binder_init_sequence))
+    setattr(af_model, '_wt_aatype', generate_wt_aatype(starting_sequence))
     
     ### Update weights based on specified settings
     af_model.opt["weights"].update({"pae":advanced_settings["weights_pae_intra"],
