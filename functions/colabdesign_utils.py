@@ -18,7 +18,7 @@ from .pyrosetta_utils import pr_relax, align_pdbs
 from .generic_utils import update_failures
 
 # hallucinate a binder
-def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residues, length, seed, helicity_value, design_models, advanced_settings, design_paths, failure_csv, starting_sequence=None, fixed_positions=None):
+def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residues, length, seed, helicity_value, design_models, advanced_settings, design_paths, failure_csv, num_iters=50, threshold=0.65, starting_sequence=None, fixed_positions=None):
     model_pdb_path = os.path.join(design_paths["Trajectory"], design_name+".pdb")
 
     # clear GPU memory for new trajectory
@@ -112,13 +112,13 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
     elif advanced_settings["design_algorithm"] == '4stage':
         # initial logits to prescreen trajectory
         print("Stage 1: Test Logits")
-        af_model.design_logits(iters=50, e_soft=0.9, models=design_models, num_models=1, sample_models=advanced_settings["sample_models"], save_best=True)
+        af_model.design_logits(iters=num_iters, e_soft=0.9, models=design_models, num_models=1, sample_models=advanced_settings["sample_models"], save_best=True)
 
         # determine pLDDT of best iteration according to lowest 'loss' value
         initial_plddt = get_best_plddt(af_model, length)
         
         # if best iteration has high enough confidence then continue
-        if initial_plddt > 0.4:
+        if initial_plddt > threshold:
             print("Initial trajectory pLDDT good, continuing: "+str(initial_plddt))
             if advanced_settings["optimise_beta"]:
                 # temporarily dump model to assess secondary structure
@@ -134,7 +134,7 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
                     print("Beta sheeted trajectory detected, optimising settings")
 
             # how many logit iterations left
-            logits_iter = advanced_settings["soft_iterations"] - 50
+            logits_iter = advanced_settings["soft_iterations"] - num_iters
             if logits_iter > 0:
                 print("Stage 1: Additional Logits Optimisation")
                 af_model.clear_best()
@@ -157,7 +157,7 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
                 softmax_plddt = logit_plddt
 
             # perform one hot encoding
-            if softmax_plddt > 0.65:
+            if softmax_plddt > threshold:
                 print("Softmax trajectory pLDDT good, continuing: "+str(softmax_plddt))
                 if advanced_settings["hard_iterations"] > 0:
                     af_model.clear_best()
@@ -166,7 +166,7 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
                                     sample_models=advanced_settings["sample_models"], dropout=False, ramp_recycles=False, save_best=True)
                     onehot_plddt = get_best_plddt(af_model, length)
 
-                if onehot_plddt > 0.65:
+                if onehot_plddt > threshold:
                     # perform greedy mutation optimisation
                     print("One-hot trajectory pLDDT good, continuing: "+str(onehot_plddt))
                     if advanced_settings["greedy_iterations"] > 0:
@@ -210,7 +210,7 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
         print("")
     else:
         # check if low quality prediction
-        if final_plddt < 0.7:
+        if final_plddt < threshold:
             af_model.aux["log"]["terminate"] = "LowConfidence"
             update_failures(failure_csv, 'Trajectory_final_pLDDT')
             print("Trajectory starting confidence low, skipping analysis and MPNN optimisation")
