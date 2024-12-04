@@ -18,7 +18,7 @@ from .pyrosetta_utils import pr_relax, align_pdbs
 from .generic_utils import update_failures
 
 # hallucinate a binder
-def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residues, length, seed, helicity_value, design_models, advanced_settings, design_paths, failure_csv):
+def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residues, length, seed, helicity_value, design_models, advanced_settings, design_paths, failure_csv, starting_sequence=None, fixed_positions=None):
     model_pdb_path = os.path.join(design_paths["Trajectory"], design_name+".pdb")
 
     # clear GPU memory for new trajectory
@@ -36,6 +36,24 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
     af_model.prep_inputs(pdb_filename=starting_pdb, chain=chain, binder_len=length, hotspot=target_hotspot_residues, seed=seed, rm_aa=advanced_settings["omit_AAs"],
                         rm_target_seq=advanced_settings["rm_template_seq_design"], rm_target_sc=advanced_settings["rm_template_sc_design"])
 
+    ### BEGIN SK CUSTOM
+    if(starting_sequence is not None and starting_sequence != ""):
+        af_model.set_seq(starting_sequence)
+        
+    if(fixed_positions is not None and fixed_positions != ""):
+        fixed_positions = fixed_positions.split(",")
+        fixed_positions = [int(pos) for pos in fixed_positions]
+        af_model.opt["fix_pos"] = jnp.array(fixed_positions)
+        
+    def generate_wt_aatype(sequence):
+        alphabet = "ARNDCQEGHILKMFPSTWYV"
+        aa_to_idx = {aa: idx for idx, aa in enumerate(alphabet)}
+        wt_aa = jnp.array([aa_to_idx[aa] for aa in sequence.upper() if aa in aa_to_idx])
+        return wt_aa
+    ### END SK CUSTOM
+        
+    setattr(af_model, '_wt_aatype', generate_wt_aatype(binder_init_sequence))
+    
     ### Update weights based on specified settings
     af_model.opt["weights"].update({"pae":advanced_settings["weights_pae_intra"],
                                     "plddt":advanced_settings["weights_plddt"],
