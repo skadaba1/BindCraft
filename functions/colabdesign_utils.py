@@ -18,7 +18,7 @@ from .pyrosetta_utils import pr_relax, align_pdbs
 from .generic_utils import update_failures
 
 # hallucinate a binder
-def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residues, length, seed, helicity_value, design_models, advanced_settings, design_paths, failure_csv, num_iters=50, threshold=0.65, starting_sequence=None, fixed_positions=None, clashes_flag=False):
+def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residues, length, seed, helicity_value, design_models, advanced_settings, design_paths, failure_csv, num_iters=50, threshold=0.65, starting_sequence=None, fixed_positions=None, clashes_flag=False, cdr_positions=None, core_positions=None, coupling_positions=None):
     model_pdb_path = os.path.join(design_paths["Trajectory"], design_name+".pdb")
 
     # clear GPU memory for new trajectory
@@ -50,9 +50,13 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
         aa_to_idx = {aa: idx for idx, aa in enumerate(alphabet)}
         wt_aa = jnp.array([aa_to_idx[aa] for aa in sequence.upper() if aa in aa_to_idx])
         return wt_aa
-    ### END SK CUSTOM
         
     setattr(af_model, '_wt_aatype', generate_wt_aatype(starting_sequence))
+    setattr(af_model, '_cdr_positions', cdr_positions)
+    setattr(af_model, '_core_positions', core_positions)
+    setattr(af_model, '_coupling_positions', coupling_positions)
+
+    ### END SK CUSTOM
     
     ### Update weights based on specified settings
     af_model.opt["weights"].update({"pae":advanced_settings["weights_pae_intra"],
