@@ -18,7 +18,7 @@ from .pyrosetta_utils import pr_relax, align_pdbs
 from .generic_utils import update_failures
 
 # hallucinate a binder
-def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residues, length, seed, helicity_value, design_models, advanced_settings, design_paths, failure_csv, num_iters=50, threshold=0.65, starting_sequence=None, fixed_positions=None):
+def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residues, length, seed, helicity_value, design_models, advanced_settings, design_paths, failure_csv, num_iters=50, threshold=0.65, starting_sequence=None, fixed_positions=None, clashes_flag=False):
     model_pdb_path = os.path.join(design_paths["Trajectory"], design_name+".pdb")
 
     # clear GPU memory for new trajectory
@@ -203,7 +203,7 @@ def binder_hallucination(design_name, starting_pdb, chain, target_hotspot_residu
     ca_clashes = calculate_clash_score(model_pdb_path, 2.5, only_ca=True)
 
     #if clash_interface > 25 or ca_clashes > 0:
-    if ca_clashes > 0:
+    if ca_clashes > 0 and not clashes_flag:
         af_model.aux["log"]["terminate"] = "Clashing"
         update_failures(failure_csv, 'Trajectory_Clashes')
         print("Severe clashes detected, skipping analysis and MPNN optimisation")
